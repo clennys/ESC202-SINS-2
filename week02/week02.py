@@ -132,12 +132,12 @@ def plottree(root):
     plt.plot([xl,xl],[yl,yh], color='blue')
     plt.plot([xh,xh],[yl,yh], color='blue')
 
-# def neighbor_search_periodic(pq, root, particles, r, period):
-#     # walk the closest image first (at offset=[0, 0])
-#     for y in [0.0, -period[1], period[1]]:
-#         for x in [0.0, -period[0], period[0]]:
-#             rOffset = np.array([x, y])
-#             neighbor_search(pq, root, particles, r, rOffset)
+def neighbor_search_periodic(pq, root, particles, r, period):
+    # walk the closest image first (at offset=[0, 0])
+    for y in [0.0, -period[1], period[1]]:
+        for x in [0.0, -period[0], period[0]]:
+            rOffset = np.array([x, y])
+            neighbor_search(pq, root, particles, r, rOffset)
 
 def dist2(rc, ri):
   d2 = 0
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     pq = prioqueue(10)
 
     
-    neighbor_search(pq, root, A, A[rd_particle_idx].r, np.array([0,0]))
+    neighbor_search_periodic(pq, root, A, A[rd_particle_idx].r, np.array([1,1]))
 
     for p in pq.heap:
       plt.scatter(A[p[1]].r[0], A[p[1]].r[1], color = 'gold', s=500, alpha=0.5)
