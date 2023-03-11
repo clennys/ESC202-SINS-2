@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""week02.ipynb
+"""week03.ipynb
 
 @author Dennys Huber
 """
@@ -14,10 +14,16 @@ class particle:
     def __init__(self, r):
         self.r = r  # position of the particle [x,y]
         self.rho = 0.0  # density of the particle
+        self.mass = 1
         # ...  more properties of the particle
 
     def __repr__(self):
-        return "(x: %s, y: %s)" % (self.r[0], self.r[1])
+        return "(x: %s, y: %s, rho: %s, m: %s)" % (
+            self.r[0],
+            self.r[1],
+            self.rho,
+            self.mass,
+        )
 
 
 class cell:
