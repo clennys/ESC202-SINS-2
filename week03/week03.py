@@ -235,7 +235,7 @@ def monaghan_kernel(radius, max_dist):
     if 0.0 <= ratio < 0.5:
         return factor * (6 * (ratio**3 - ratio**2) + 1)
     elif 0.5 <= radius / max_dist <= 1:
-        return factor * 2 * (1 - ratio)**3
+        return factor * 2 * (1 - ratio) ** 3
     else:
         return 0
 
