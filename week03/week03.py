@@ -223,26 +223,32 @@ def check_prio(k, A):
     # Here NN and d2NN lists for particle p are filled.
     # Compare them with the lists you got from the recursive algorithm
 
+
 def top_hat_kernel(radius, max_dist):
-    return 1/ (max_dist**2 * np.pi) if 0 <= radius/max_dist <= 1 else 0 
+    return 1 / (max_dist**2 * np.pi) if 0 <= radius / max_dist <= 1 else 0
+
 
 def monaghan_kernel(radius, max_dist):
-    factor = (40 / (7*np.pi)) / (max_dist**2)
+    factor = (40 / (7 * np.pi)) / (max_dist**2)
+    ratio = radius / max_dist
 
-    if  0 <= radius/max_dist < 0.5:
-        return factor * 6 * ((radius**3 / max_dist**3) - (radius**2 / max_dist**2)) + 1
-    elif 0.5 <= radius/max_dist <= 1:
-        return factor * 2 * (1 - radius**3 / max_dist**3)
-    else: return 0
+    if 0.0 <= ratio < 0.5:
+        return factor * (6 * (ratio**3 - ratio**2) + 1)
+    elif 0.5 <= radius / max_dist <= 1:
+        return factor * 2 * (1 - ratio)**3
+    else:
+        return 0
+
 
 def density(kernel, A, prio_q):
-    total_rho = 0;
+    total_rho = 0
     max_dist = np.sqrt(prio_q.key())
 
     for p in prio_q.heap:
-        total_rho += A[p[1]].mass * kernel(np.sqrt(-p[0]), max_dist) 
+        total_rho += A[p[1]].mass * kernel(np.sqrt(-p[0]), max_dist)
 
     return total_rho
+
 
 def plot_density(method, k_nearest, A, root):
     densities = []
@@ -252,15 +258,17 @@ def plot_density(method, k_nearest, A, root):
     for particle in A:
         prio_q = prioqueue(k_nearest)
         neighbor_search_periodic(prio_q, root, A, particle.r, np.array([1, 1]))
-        rho = density(method, A, prio_q) 
+        rho = density(method, A, prio_q)
         particle.rho = rho
-        densities.append(rho); x.append(particle.r[0]); y.append(particle.r[1])
+        densities.append(rho)
+        x.append(particle.r[0])
+        y.append(particle.r[1])
 
     return densities, x, y
 
 
 if __name__ == "__main__":
-    fig, ax = plt.subplots(1,2)
+    fig, ax = plt.subplots(1, 2)
 
     nr_particles = 1000
     k_nearest = 32
@@ -279,13 +287,18 @@ if __name__ == "__main__":
     densities_top, x_top, y_top = plot_density(top_hat_kernel, k_nearest, A, root)
     densities_mon, x_mon, y_mon = plot_density(monaghan_kernel, k_nearest, A, root)
 
-    sp0 = ax[0].scatter(x_top, y_top, c=densities_top, cmap='coolwarm')
-    sp1 = ax[1].scatter(x_mon, y_mon, c=densities_mon, cmap='coolwarm')
-    plt.colorbar(sp0 ,ax=ax[0])
-    plt.colorbar(sp1 ,ax=ax[1])
+    sp0 = ax[0].scatter(x_top, y_top, c=densities_top, cmap="coolwarm")
+    sp1 = ax[1].scatter(x_mon, y_mon, c=densities_mon, cmap="coolwarm")
+    plt.colorbar(sp0, ax=ax[0])
+    plt.colorbar(sp1, ax=ax[1])
 
-    ax[0].set_title("Top Hat Kernel with %s nearest neighbors and %s particles" % (k_nearest, nr_particles))
-    ax[1].set_title("Monaghan Kernel with %s nearest neighbors and %s particles" % (k_nearest, nr_particles))
-
+    ax[0].set_title(
+        "Top Hat Kernel with %s nearest neighbors and %s particles"
+        % (k_nearest, nr_particles)
+    )
+    ax[1].set_title(
+        "Monaghan Kernel with %s nearest neighbors and %s particles"
+        % (k_nearest, nr_particles)
+    )
 
     plt.show()
