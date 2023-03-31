@@ -1,13 +1,15 @@
-# -*- coding: utf-9 -*-
+# -*- coding: utf-8 -*-
 """
 
 @author Dennys Huber
 """
 
+from logging import raiseExceptions
 import numpy as np
 import random as rd
 import matplotlib.pyplot as plt
 import heapq as hq
+from matplotlib.animation import FuncAnimation
 
 
 class particle:
@@ -17,27 +19,35 @@ class particle:
         self.mass = 1.0
         self.velo = np.zeros(2)
         self.predicted_velo = np.zeros(2)
-        self.acc =  np.zeros(2)
-        self.energy = rd.random()
+        self.acc = np.zeros(2)
+        self.energy = 1
         self.energy_dt = 0.0
         self.predicted_energy = 0.0
         self.c_sound = 0.0
         self.radius_of_kernel = 0.0
         self.k_nearest = k
+        self.prio_q = None
 
     def __repr__(self):
-        return "(r: (x: %s, y: %s), rho: %s, m: %s, v: (vx: %s, vy: %s), a: (ax: %s, ay %s), e: %s, c: %s, h: %s)" % (
-            self.r[0],
-            self.r[1],
-            self.rho,
-            self.mass,
-            self.velo[0],
-            self.velo[1],
-            self.acc[0],
-            self.acc[1],
-            self.energy,
-            self.c_sound,
-            self.radius_of_kernel
+        return (
+            "(r: (x: %s, y: %s), rho: %s, m: %s, v: ((vx: %s, vy: %s), (vpx: %s, vpy: %s)), a: (ax: %s, ay: %s), e: (e: %s, ep: %s, edot: %s), c: %s, h: %s)"
+            % (
+                self.r[0],
+                self.r[1],
+                self.rho,
+                self.mass,
+                self.velo[0],
+                self.velo[1],
+                self.predicted_velo[0],
+                self.predicted_velo[1],
+                self.acc[0],
+                self.acc[1],
+                self.energy,
+                self.predicted_energy,
+                self.energy_dt,
+                self.c_sound,
+                self.radius_of_kernel,
+            )
         )
 
 
@@ -114,6 +124,8 @@ def treebuild(A, root, dim):
 
     v = 0.5 * (root.rLow[dim] + root.rHigh[dim])
     s = partition(A, root.iLower, root.iUpper, v, dim)
+
+    # print(A[0])
 
     if not s:
         return
@@ -258,6 +270,14 @@ def monaghan_kernel(radius, max_dist):
         return 0
 
 
+def monaghan_derivative(r, h):
+    if r / h < 0.5:
+        return 3 * (r / h) ** 2 - 2 * (r / h)
+    elif 0.5 <= r / h <= 1:
+        return -((1 - (r / h)) ** 2)
+    return 0
+
+
 def density(kernel, A, prio_q):
     total_rho = 0
     max_dist = np.sqrt(prio_q.key())
@@ -284,100 +304,184 @@ def plot_density(method, k_nearest, A, root):
 
     return densities, x, y
 
-def first_drift(particle, time_step):
+
+def first_drift(A, time_step):
+    for particle in A:
+        for d in range(2):
+            # print(particle.predicted_velo[d], particle.velo[d], particle.acc[d], time_step)
+            particle.r[d] += particle.velo[d] * time_step
+            particle.r[d] = particle.r[d] % 1.0
+            particle.predicted_velo[d] = particle.velo[d] + particle.acc[d] * time_step
+        particle.predicted_energy = particle.energy + particle.energy_dt * time_step
+
+
+def kick(A, time_step):
+    for particle in A:
+        for d in range(2):
+            # print("VELO: ",d, particle.acc[d], time_step)
+            particle.velo[d] += particle.acc[d] * time_step
+        particle.energy += particle.energy_dt * time_step
+
+
+def second_drift(A, time_step):
+    for particle in A:
+        for d in range(2):
+            particle.r[d] += particle.velo[d] * time_step
+            particle.r[d] = particle.r[d] % 1
+
+
+def gradient_monaghan_kernel(normal_r, radius, kernel_size_h):
+    # print(((40 * 6 / (7 * np.pi)), " / ", kernel_size_h**3) , " * ", monaghan_derivative(radius, kernel_size_h), " = ", ((40 * 6 / (7 * np.pi)) / kernel_size_h**3) * monaghan_derivative(radius, kernel_size_h), " r: ", radius, " kernel: ", kernel_size_h, " normal: ", normal_r)
+    dW = ((40 * 6 / (7 * np.pi)) / kernel_size_h**3) * monaghan_derivative(
+        radius, kernel_size_h
+    )
+    return dW * normal_r
+
+
+def r_diff(particle_a, particle_b):
+    dist_particle_ab = np.zeros(2)
     for d in range(2):
-        particle.r[d] += particle.velo[d] * time_step
-        particle.predicted_velo[d] = particle.velo[d] + particle.acc[d] * time_step
-    particle.predicted_energy = particle.energy + particle.energy_dt * time_step
+        dist_particle_ab[d] = particle_a.r[d] - particle_b.r[d]
+    return dist_particle_ab
 
-def kick(particle, time_step):
-    for d in range(2):
-        particle.velo[d] += particle.acc[d] * time_step
-    particle.energy += particle.energy_dt * time_step
-    
 
-def second_drift(particle, time_step):
-    for d in range(2):
-        particle.r[d] += particle.velo[d] * time_step
+def wendtland_kernel(abs_r, max_radius_h):
+    h = max_radius_h / 2
+    q = abs_r / h
+    factor_alpha = 7 / (4 * np.pi * h**2)
+    if 0.0 <= q <= 2.0:
+        return factor_alpha * (1 - q / 2) ** 4 * (1 + 2 * q)
+    elif 2 < q:
+        return 0
+    else:
+        raise Exception("Wendland_kernel smth is wrong here")
 
-def gradient_kernel(method, particle_a, particle_b, radius):
-    pass
-    
 
-def calculate_sound(method, A, particle_a, prio_q):
-    degree_of_freedom = 2
-    particle_a.c_sound = np.sqrt(particle_a.energy * degree_of_freedom * (degree_of_freedom - 1))
+def gradient_wendlant_kernel(abs_r, max_radius_h):
+    h = max_radius_h / 2
+    q = abs_r / h
+    factor_alpha = (7 / (4 * np.pi * h**2)) / h
+    if 0.0 <= q <= 2.0:
+        return factor_alpha * -5 * q(1 - q / 2) ** 3
+    elif 2 < q:
+        return 0
+    else:
+        raise Exception("Wendland_kernel smth is wrong here")
 
-    particle_a.energy_dt = 0.0
-    force_a = particle_a.c_sound ** 2 / (2.0 * particle_a.rho)
+
+def artifical_viscosity_term(particle_a, particle_b, alpha, beta, velo_ab, r_ab):
+    pi_ab = 0
+    if (velo_ab).dot(
+        r_ab
+    ) < 0:  # Not sure if particle_a and particle_b must be switched
+        mean_c = (particle_a.c_sound + particle_b.c_sound) / 2
+        mean_rho = (particle_a.rho + particle_b.rho) / 2
+        mean_h = (particle_a.radius_of_kernel + particle_b.radius_of_kernel) / 2
+        nu_ab = (mean_h * velo_ab.dot(r_ab)) / (r_ab.dot(r_ab) + 0.001**2)
+        pi_ab = (-alpha * mean_c * nu_ab + beta * nu_ab**2) / mean_rho
+    return pi_ab
+
+
+def nearest_neighbor_sph_force(A, particle_a, prio_q, degree_of_freedom):
+    force_a = particle_a.c_sound**2 / (degree_of_freedom * particle_a.rho)
 
     particle_a.radius_of_kernel = prio_q.key()
 
-    # Check particle a == particle b?
-    for q in range(particle_a.k_nearest):
-        particle_b =  A[prio_q.position_in_array(q)]
-        force_b = particle_b.c ** 2 / (2.0 / particle_b.rho)
-        particle_a.energy_dt += particle_b.mass * (particle_a.velo - particle_b.velo).dot(gradient_kernel(method, particle_a, particle_b, prio_q.key()))
-        particle_a.acc -= particle_b.mass * (force_a - force_b) * gradient_kernel(method, particle_a, particle_b, prio_q.key())
-    particle_a.energy_dt *= force_a
+    energy_dt = 0.0
+    acc = 0.0  # is this zero?
+    for q in prio_q.heap:
+        particle_b = A[q[1]]
+        max_dist = prio_q.key()
+        radius = np.sqrt(-q[0])
+        force_b = particle_b.c_sound**2 / (degree_of_freedom / particle_b.rho)
+        r = r_diff(particle_a, particle_b)
+        abs_r = np.sqrt(r.dot(r))
+        # print("RAD", radius, abs_r)
 
-def nearest_neighbor_sph_forces():
-    pass
+        energy_dt += particle_b.mass * (particle_a.velo - particle_b.velo).dot(
+            gradient_monaghan_kernel(r / abs_r, radius, max_dist)
+        )
+        # print(energy_dt, " += ",   particle_b.mass, " * ", (particle_a.velo - particle_b.velo), " DOT ", gradient_monaghan_kernel(r/abs_r, radius, max_dist), " = ", (particle_a.velo - particle_b.velo).dot(gradient_monaghan_kernel(r/abs_r, radius, max_dist)))
 
-def calculate_forces(method, A, particle):
-    prio_q = prioqueue(particle.k_nearest)
-    particle.rho = density(method, A, prio_q)
-    calculate_sound(method, A, particle, prio_q)
-    nearest_neighbor_sph_forces()
-    
+        acc -= (
+            particle_b.mass
+            * (
+                force_a
+                + force_b
+                + artifical_viscosity_term(
+                    particle_a, particle_b, 1, 2, particle_a.velo - particle_b.velo, r
+                )
+            )
+            * gradient_monaghan_kernel(r / abs_r, radius, max_dist)
+        )
+        # acc -= particle_b.mass * (force_a + force_b) * gradient_monaghan_kernel(particle_a, particle_b, prio_q.key())
+        # print("MASS: ", particle_b.mass , "FA: ", force_a, "FB",force_b, "viscosity", artifical_viscosity_term(particle_a, particle_b, 1, 2, particle_a.velo - particle_b.velo, r_diff(particle_a, particle_b)), "gradient_monaghan_kernel: ", gradient_monaghan_kernel(particle_a, particle_b, prio_q.key()))
+        # print("ALLINONE: " ,particle_b.mass * (force_a + force_b + artifical_viscosity_term(particle_a, particle_b, 1, 2, particle_a.velo - particle_b.velo, r_diff(particle_a, particle_b))) * gradient_monaghan_kernel(particle_a, particle_b, particle_a.radius_of_kernel))
 
-def smooth_particle_hydrodynamics(method, A, nr_steps, time_step):
-    root = cell([0, 0], [1,1] , 0, len(A) - 1, 0)
+    energy_dt *= force_a
+
+    return acc, energy_dt
+
+
+def calculate_sound(particle_a, degree_of_freedom):
+    return np.sqrt(
+        particle_a.predicted_energy * degree_of_freedom * (degree_of_freedom - 1)
+    )
+
+
+def calculate_forces(method, A):
+    root = cell([0, 0], [1, 1], 0, len(A) - 1, 0)
     treebuild(A, root, 0)
+    for q in A:
+        q.prio_q = prioqueue(q.k_nearest)
+        neighbor_search_periodic(q.prio_q, root, A, q.r, np.array([1, 1]))
+        q.rho = density(method, A, q.prio_q)
+        q.c_sound = calculate_sound(q, 2.0)
+    for q in A:
+        q.acc, q.energy_dt = nearest_neighbor_sph_force(A, q, q.prio_q, 2.0)
 
-    for particle in A:
-        first_drift(particle, time_step)
-        calculate_forces(method, A, particle)
 
-    for _ in range(nr_steps):
-        for particle in A:
-            first_drift(particle, time_step)
-            calculate_forces(method, A, particle)
-            kick(particle, time_step)
-            second_drift(particle, time_step)
+def initial_setup(method, A):
+    # print("INIT BFD: ",A[0])
+    first_drift(A, 0)
+    # print("INIT AFD BCF: ",A[0])
+    calculate_forces(method, A)
+    # print("INIT ACF: ",A[0])
+
+
+def smooth_particle_hydrodynamics(method, A, time_step):
+    # print("BFD: ",A[0])
+    first_drift(A, time_step / 2)
+    # print("AFD BCF: ",A[0])
+    calculate_forces(method, A)
+    # print("ACF BK: ",A[0])
+    kick(A, time_step)
+    # print("AK BSD: ",A[0])
+    second_drift(A, time_step / 2)
+    # print("ASD: ",A[0])
+
 
 if __name__ == "__main__":
-    fig, ax = plt.subplots(1, 2)
-
-    nr_particles = 1000
+    nr_particles = 256
     k_nearest = 32
     A = random_AMatrix(nr_particles, k_nearest)
-    root_rlow = [0, 0]
-    root_rhigh = [1, 1]
+    fig, axs = plt.subplots()
 
-    root = cell(root_rlow, root_rhigh, 0, len(A) - 1, 0)
+    initial_setup(monaghan_kernel, A)
 
-    treebuild(A, root, 0)
+    x = [p.r[0] for p in A]
+    y = [p.r[1] for p in A]
+    scatter = axs.scatter(x, y, c="r", marker="o")
+    time_step = 0
 
-    for i in range(2):
-        ax[i].set_xlim(root_rlow[0], root_rhigh[0])
-        ax[i].set_ylim(root_rlow[1], root_rhigh[1])
+    def update(frame):
+        global time_step
+        time_step += 0.001
+        smooth_particle_hydrodynamics(monaghan_kernel, A, time_step)
+        scatter.set_offsets([p.r for p in A])
+        print("frame: ", frame)
 
-    densities_top, x_top, y_top = plot_density(top_hat_kernel, k_nearest, A, root)
-    densities_mon, x_mon, y_mon = plot_density(monaghan_kernel, k_nearest, A, root)
+    ani = FuncAnimation(fig, update, frames=range(50), interval=10, repeat=False)
+    ani.save("sph_500.mp4")
 
-    sp0 = ax[0].scatter(x_top, y_top, c=densities_top, cmap="coolwarm")
-    sp1 = ax[1].scatter(x_mon, y_mon, c=densities_mon, cmap="coolwarm")
-    plt.colorbar(sp0, ax=ax[0])
-    plt.colorbar(sp1, ax=ax[1])
-
-    ax[0].set_title(
-        "Top Hat Kernel with %s nearest neighbors and %s particles"
-        % (k_nearest, nr_particles)
-    )
-    ax[1].set_title(
-        "Monaghan Kernel with %s nearest neighbors and %s particles"
-        % (k_nearest, nr_particles)
-    )
-
-    plt.show()
+    # plt.show()
