@@ -30,24 +30,31 @@ def grid_random_spins(width: int, height: int):
     grid = np.zeros((width, height))
     for i in range(height):
         for j in range(width):
-            grid[i][j] = rd.choice([1,-1])
+            grid[i][j] = rd.choice([1, -1])
     return grid
 
+
 @njit
-def energy_change_spin(grid, idx: int, jdx:int, width:int, height:int, interaction_energy: float):
-    center = grid[idx, jdx] 
+def energy_change_spin(
+    grid, idx: int, jdx: int, width: int, height: int, interaction_energy: float
+):
+    center = grid[idx, jdx]
     up = grid[idx, (jdx + 1) % height]
     right = grid[(idx + 1) % width, jdx]
-    down= grid[idx, (jdx - 1) % height] 
-    left = grid[(idx - 1) % width, jdx] 
+    down = grid[idx, (jdx - 1) % height]
+    left = grid[(idx - 1) % width, jdx]
     neighbors = up + right + down + left
     return 2 * interaction_energy * center * neighbors
 
 
 @njit
-def metropolis(grid, inv_temperature: float, width: int, height: int, interaction_energy: float):
+def metropolis(
+    grid, inv_temperature: float, width: int, height: int, interaction_energy: float
+):
     idx, jdx = rd.randint(0, width), rd.randint(0, height)
-    energy_change = energy_change_spin(grid, idx, jdx, width, height, interaction_energy)
+    energy_change = energy_change_spin(
+        grid, idx, jdx, width, height, interaction_energy
+    )
     if energy_change < 0:
         grid[idx, jdx] = -grid[idx, jdx]
     else:
@@ -55,12 +62,22 @@ def metropolis(grid, inv_temperature: float, width: int, height: int, interactio
         if float_random < np.exp(-inv_temperature * energy_change):
             grid[idx, jdx] = -grid[idx, jdx]
 
-def monte_carlo_simulations(grid, width: int, height: int, current_temperature: float, nr_per_temperature:int, stopping_temperaturue: float, factor_temperature: float, interaction_energy:float ):
+
+def monte_carlo_simulations(
+    grid,
+    width: int,
+    height: int,
+    current_temperature: float,
+    nr_per_temperature: int,
+    stopping_temperaturue: float,
+    factor_temperature: float,
+    interaction_energy: float,
+):
     grid_snapshots = []
     counter = 0
     while current_temperature > stopping_temperaturue:
         current_temperature *= factor_temperature
-        inv_temperature = 1/current_temperature # K_B const = 1
+        inv_temperature = 1 / current_temperature  # K_B const = 1
 
         for _ in range(nr_per_temperature):
             metropolis(grid, inv_temperature, width, height, interaction_energy)
@@ -83,13 +100,14 @@ if __name__ == "__main__":
 
     grid = grid_random_spins(NX, NY)
 
-    grid_snapshots = monte_carlo_simulations(grid, NX, NY, TEMP_START, N_PER_TEMP, TEMP_END, TEMP_FACTOR, J)
+    grid_snapshots = monte_carlo_simulations(
+        grid, NX, NY, TEMP_START, N_PER_TEMP, TEMP_END, TEMP_FACTOR, J
+    )
     print(len(grid_snapshots))
-
 
     def update(frame):
         line.set_data(grid_snapshots[frame])
-        return line,
+        return (line,)
 
     line = ax.imshow(grid_snapshots[0], cmap="winter", animated=True)
 
