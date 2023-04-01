@@ -1,0 +1,33 @@
+
+tour = [0,1,2...N-1]
+
+
+E = 0
+for i in tour:
+  E += sqrt((x[i] - x[i-1])**2 ...
+  
+  
+Swapping two cities:
+Choose a random pair i,j
+swap tour[i] with tour[j]
+
+
+tour = [ ... a, b, B,  ... C, c, d ... ]
+                i             j
+				
+new tour = [ ... a, c, B, ... C, b, d ... ]
+
+d() is distance function with sqrt
+
+Eold = ... + d(a,b) + d(b,B) ... + d(C,c) + d(c,d) + ...
+Enew = ... + d(a,c) + d(c,B) ... + d(C,b) + d(b,d) + ...
+deltaE = Enew - Eold = d(a,c) + d(c,B) + d(C,b) + d(b,d) - d(a,b) - d(b,B) - d(C,c) - d(c,d)
+
+
+Reverse a segment:
+tour = [ ... a | b,  ... c | d ... ]
+             i           j
+			 
+new tour = [ ... a | c,  ... b | d ... ]
+
+deltaE = Enew - Eold = d(a,c) + d(b,d) - d(a,b) - d(c,d)
