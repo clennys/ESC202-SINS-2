@@ -91,7 +91,7 @@ if __name__ == "__main__":
         line.set_data(grid_snapshots[frame])
         return line,
 
-    line = ax.imshow(grid_snapshots[0], "binary", animated=True)
+    line = ax.imshow(grid_snapshots[0], cmap="winter", animated=True)
 
     frame = len(grid_snapshots)
 
